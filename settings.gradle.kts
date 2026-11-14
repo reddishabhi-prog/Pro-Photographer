@@ -24,3 +24,4 @@ rootProject.name = "AIPhotographer"
 
 include(":app")
 include(":intelligence")
+include(":simulator")
