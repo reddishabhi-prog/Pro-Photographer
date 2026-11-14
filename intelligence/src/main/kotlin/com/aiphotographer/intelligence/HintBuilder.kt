@@ -39,25 +39,31 @@ object HintBuilder {
                 "Step back — feet or hands are cut off",
             )
         }
+
+        // ---- IMPORTANT: a clear, easy improvement ----
+        // Light problems are IMPORTANT, not CRITICAL: in AUTO the app already
+        // brightens a backlit face and lengthens the exposure in the dark, so
+        // the photo is usable either way. A CRITICAL here blocked "Looks good"
+        // in every dim room and by every window, which is most of indoor life.
         if (lighting.type == LightingType.BACKLIT) {
             hints += Hint(
-                HintPriority.CRITICAL, "BACKLIT",
-                "Light is behind them. Turn them around, or tap the face to brighten it",
+                HintPriority.IMPORTANT, "BACKLIT",
+                "Bright light behind them — turn them to face the light",
             )
         }
         if (lighting.type == LightingType.LOW_LIGHT) {
             hints += Hint(
-                HintPriority.CRITICAL, "LOW_LIGHT",
-                "Very dark. Hold still, or find more light",
+                HintPriority.IMPORTANT, "LOW_LIGHT",
+                "Low light — hold the phone very still",
             )
         }
-
-        // ---- IMPORTANT: a clear, easy improvement ----
         if (CompositionAnalyzer.HORIZON_TILTED in issues) {
+            // Positive roll is the phone turned clockwise; undo it by turning
+            // anticlockwise, which people call "left".
             val way = if (input.tilt.rollDeg > 0) "left" else "right"
             hints += Hint(
                 HintPriority.IMPORTANT, CompositionAnalyzer.HORIZON_TILTED,
-                "Straighten up — tilt $way",
+                "Phone is tilted — rotate it $way",
             )
         }
         if (CompositionAnalyzer.TOO_MUCH_HEADROOM in issues) {

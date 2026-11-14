@@ -370,7 +370,12 @@ class PhotoIntelligenceEngineTest {
             g.hints.size <= HintBuilder.MAX_HINTS)
         assertEquals(
             "the most urgent problem must come first",
-            HintPriority.CRITICAL, g.hints.first().priority,
+            g.hints.map { it.priority.weight }.sortedDescending(),
+            g.hints.map { it.priority.weight },
+        )
+        assertTrue(
+            "light and tilt are real problems here, not polish",
+            g.hints.first().priority >= HintPriority.IMPORTANT,
         )
         assertTrue("should score badly, got ${g.overallScore}", g.overallScore < 60)
         assertFalse(g.readyToShoot)
