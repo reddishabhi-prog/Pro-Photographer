@@ -222,6 +222,8 @@ fun viewfinder(g: Guidance): List<String> = buildList {
  * fixes it over ~2 seconds. Detector jitter is injected on alternate frames to
  * prove the stabiliser holds the advice steady instead of flickering.
  */
+val liveFrames = mutableListOf<String>()
+
 fun liveSession(out: MutableList<String>) {
     val stabilizer = GuidanceStabilizer()
     val base = SCENES[1].input // the golden-hour frame is the destination
@@ -238,6 +240,7 @@ fun liveSession(out: MutableList<String>) {
             tilt = DeviceTilt(rollDeg = roll),
         )
         val shown = stabilizer.update(PhotoIntelligenceEngine.analyse(input))
+        liveFrames += frameJson(input, shown, "\"frame\":$frame,")
         val line = if (shown.readyToShoot && shown.hints.isEmpty()) "✅ Looks good — take it"
         else shown.hints.joinToString(" | ") { it.text }.ifEmpty { "(no hints)" }
         if (line != lastShown) {
@@ -245,6 +248,31 @@ fun liveSession(out: MutableList<String>) {
             lastShown = line
         }
     }
+}
+
+private fun q(v: String) = "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+private fun box(b: Box) = "[${b.left},${b.top},${b.right},${b.bottom}]"
+
+/** One frame as JSON: what the detectors saw and what the screen showed. */
+fun frameJson(input: FrameInput, g: Guidance, extra: String = ""): String = buildString {
+    append("{")
+    append(extra)
+    append("\"luma\":[${input.luma.regions.joinToString(",")}],")
+    append("\"people\":[${input.people.joinToString(",") { box(it.box) }}],")
+    append("\"faces\":[${input.faces.joinToString(",") { box(it.box) }}],")
+    append("\"roll\":${input.tilt.rollDeg},\"pitch\":${input.tilt.pitchDeg},")
+    append("\"warmth\":${input.color.warmth},")
+    append("\"scene\":${q(g.scene.name)},\"framing\":${q(g.framing.name)},")
+    append("\"light\":${q(g.lighting.type.name)},\"direction\":${q(g.lighting.direction.name)},")
+    append("\"score\":${g.overallScore},\"compScore\":${g.composition.score},\"lightScore\":${g.lighting.score},")
+    append("\"target\":[${g.composition.targetCenterX},${g.composition.targetCenterY}],")
+    append("\"angle\":${q(g.angle.name)},\"pose\":${g.poseId?.let { q(it) } ?: "null"},")
+    val st = g.settings
+    append("\"iso\":${st.iso},\"shutter\":${st.shutterDenominator},\"ev\":${st.evCompensation},")
+    append("\"wb\":${q(st.whiteBalance.name)},\"hdr\":${st.useHdr},\"aspect\":${q(st.aspectRatio)},\"reason\":${q(st.reason)},")
+    append("\"ready\":${g.readyToShoot},")
+    append("\"hints\":[${g.hints.joinToString(",") { "{\"p\":${q(it.priority.name)},\"code\":${q(it.code)},\"text\":${q(it.text)}}" }}]")
+    append("}")
 }
 
 fun main() {
@@ -267,4 +295,8 @@ fun main() {
     println(report)
     File("build").mkdirs()
     File("build/simulation-report.txt").writeText(report + "\n")
+    val scenes = SCENES.joinToString(",\n") { sc ->
+        frameJson(sc.input, PhotoIntelligenceEngine.analyse(sc.input), "\"title\":${q(sc.title)},\"story\":${q(sc.story)},")
+    }
+    File("build/simulation.json").writeText("{\"scenes\":[\n$scenes\n],\"live\":[\n${liveFrames.joinToString(",\n")}\n]}\n")
 }
