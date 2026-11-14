@@ -65,6 +65,11 @@ data class CameraUiState(
     val frameAspect: Float = 3f / 4f,
     /** Phone roll in degrees, clockwise positive, as the engine judged it. */
     val rollDeg: Float = 0f,
+    /**
+     * The first-run tip for what the user said they shoot. Its own field, not
+     * [message]: camera start-up clears messages, and the tip must survive it.
+     */
+    val welcomeTip: String? = null,
     /** Bumped on every successful shutter press, to flash the screen. */
     val shotCount: Int = 0,
 ) {

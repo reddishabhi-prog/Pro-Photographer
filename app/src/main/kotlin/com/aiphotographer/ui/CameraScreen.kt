@@ -165,6 +165,14 @@ fun CameraScreen(
                 modifier = Modifier.fillMaxSize(),
             )
 
+            state.welcomeTip?.let { tip ->
+                WelcomeTip(
+                    tip = tip,
+                    onDismiss = viewModel::dismissWelcomeTip,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
+                )
+            }
+
             HintStrip(
                 advice = advice,
                 modifier = Modifier
@@ -256,6 +264,45 @@ fun CameraScreen(
             }
         }
     }
+    }
+}
+
+/** The first-run tip, tuned to what the user said they shoot. Leaves by itself. */
+@Composable
+private fun WelcomeTip(tip: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    LaunchedEffect(tip) {
+        kotlinx.coroutines.delay(8_000)
+        onDismiss()
+    }
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.Black.copy(alpha = 0.72f))
+            .border(1.dp, Amber.copy(alpha = 0.6f), RoundedCornerShape(18.dp))
+            .padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Image(
+            painter = androidx.compose.ui.res.painterResource(com.aiphotographer.R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            modifier = Modifier.size(30.dp),
+        )
+        Text(
+            text = tip,
+            color = Color.White,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Text(
+            text = "Got it",
+            color = Amber,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable(onClick = onDismiss)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        )
     }
 }
 

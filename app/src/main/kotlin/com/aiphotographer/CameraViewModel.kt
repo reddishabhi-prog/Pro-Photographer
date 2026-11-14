@@ -69,7 +69,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun setInterests(picks: List<ShootingInterest>, welcome: Boolean) {
         interests = picks.toSet()
         if (welcome) {
-            ShootingInterest.welcomeTip(picks)?.let { tip -> _state.update { it.copy(message = tip) } }
+            ShootingInterest.welcomeTip(picks)?.let { tip -> _state.update { it.copy(welcomeTip = tip) } }
         }
     }
 
@@ -265,6 +265,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun dismissMessage() = _state.update { it.copy(message = null) }
+    fun dismissWelcomeTip() = _state.update { it.copy(welcomeTip = null) }
 
     private fun pushManualSettings() {
         val current = _state.value
