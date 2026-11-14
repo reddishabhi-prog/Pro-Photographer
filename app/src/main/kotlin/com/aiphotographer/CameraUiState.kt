@@ -46,8 +46,8 @@ data class CameraUiState(
     val capabilities: CameraCapabilities = CameraCapabilities.UNKNOWN,
     val manual: ManualSettings = ManualSettings(),
     val poseVariant: Int = 0,
-    val showPoseGuide: Boolean = true,
-    val showGrid: Boolean = true,
+    val showPoseGuide: Boolean = Features.POSE_GUIDE,
+    val showGrid: Boolean = Features.GRID,
     val showLevel: Boolean = true,
     val captureStage: CaptureStage = CaptureStage.IDLE,
     val usingFrontCamera: Boolean = false,
@@ -63,6 +63,10 @@ data class CameraUiState(
     val livePose: Map<Landmark, NormPoint> = emptyMap(),
     /** Frame width / height, so overlays match the preview's shape. */
     val frameAspect: Float = 3f / 4f,
+    /** Phone roll in degrees, clockwise positive, as the engine judged it. */
+    val rollDeg: Float = 0f,
+    /** Bumped on every successful shutter press, to flash the screen. */
+    val shotCount: Int = 0,
 ) {
     val isPro: Boolean get() = mode == ShootingMode.PRO
 }

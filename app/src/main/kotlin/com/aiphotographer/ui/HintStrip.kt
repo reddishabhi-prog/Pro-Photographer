@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.aiphotographer.intelligence.Guidance
+import com.aiphotographer.intelligence.ViewfinderAdvice
 import com.aiphotographer.intelligence.Hint
 import com.aiphotographer.intelligence.HintPriority
 import com.aiphotographer.ui.theme.Amber
@@ -41,34 +41,23 @@ import com.aiphotographer.ui.theme.Good
  */
 @Composable
 fun HintStrip(
-    guidance: Guidance?,
+    advice: ViewfinderAdvice,
     modifier: Modifier = Modifier,
 ) {
+    // One line at a time: someone holding a phone up can read one instruction.
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val hints = guidance?.hints ?: emptyList()
-
-        AnimatedVisibility(
-            visible = hints.isEmpty() && guidance?.readyToShoot == true,
-            enter = fadeIn(),
-            exit = fadeOut(),
-        ) {
+        AnimatedVisibility(visible = advice.looksGood, enter = fadeIn(), exit = fadeOut()) {
             HintPill(
                 icon = Icons.Filled.CheckCircle,
                 text = "Looks good — take it",
                 tint = Good,
             )
         }
-
-        for (hint in hints) {
-            HintPill(
-                icon = hint.icon(),
-                text = hint.text,
-                tint = hint.tint(),
-            )
+        advice.hint?.let { hint ->
+            HintPill(icon = hint.icon(), text = hint.text, tint = hint.tint())
         }
     }
 }

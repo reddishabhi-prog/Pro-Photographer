@@ -1,5 +1,26 @@
 package com.aiphotographer.ui
 
+import android.content.Context
+import android.content.Intent
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Build
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import com.aiphotographer.Features
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.aiphotographer.intelligence.AdviceSelector
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,9 +78,9 @@ import com.aiphotographer.ui.theme.Smoke
 /**
  * The viewfinder.
  *
- * The layout follows one rule: the photograph owns the screen. Controls live
- * at the edges, advice sits just above the shutter where the thumb already is,
- * and nothing opaque ever covers the middle of the frame.
+ * Built for someone who has never read a manual: the picture you will get,
+ * one instruction on it, a shutter, and your last photo. Everything else is
+ * behind [Features] until it has earned its place on a real phone.
  */
 @Composable
 fun CameraScreen(
@@ -69,10 +90,14 @@ fun CameraScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
+    val advice = remember(state.guidance) { AdviceSelector.select(state.guidance) }
 
     val previewView = remember {
         PreviewView(context).apply {
-            scaleType = PreviewView.ScaleType.FILL_CENTER
+            // The view is sized to the camera's own 3:4 frame below, so FIT
+            // shows the whole frame: what you see is what gets saved, and
+            // overlay coordinates line up with the picture underneath.
+            scaleType = PreviewView.ScaleType.FIT_CENTER
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         }
     }
@@ -81,115 +106,145 @@ fun CameraScreen(
         viewModel.bindCamera(lifecycleOwner, previewView)
     }
 
+    // A white blink on every shot: proof the button did something.
+    val flash = remember { Animatable(0f) }
+    LaunchedEffect(state.shotCount) {
+        if (state.shotCount > 0) {
+            flash.snapTo(0.85f)
+            flash.animateTo(0f, tween(durationMillis = 260))
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-
-        AndroidView(
-            factory = { previewView },
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        viewModel.focusAt(previewView, offset.x, offset.y)
-                    }
-                },
-        )
-
-        GuidanceOverlay(
-            guidance = state.guidance,
-            livePose = state.livePose,
-            showGrid = state.showGrid,
-            showPoseGuide = state.showPoseGuide,
-            showLevel = state.showLevel,
-            mirrored = state.usingFrontCamera,
-            frameAspect = state.frameAspect,
-            modifier = Modifier.fillMaxSize(),
-        )
-
-        // ---------------- Top ----------------
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            TopReadout(state = state)
-            ExposureReadout(state = state)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (Features.TECH_READOUT) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TopReadout(state = state)
+                ExposureReadout(state = state)
+            }
+        } else {
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // ---------------- Bottom ----------------
+        // ---------------- The viewfinder: exactly the photo's shape ----------------
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(state.frameAspect.coerceIn(0.5f, 1f))
+                .clip(RoundedCornerShape(14.dp)),
+        ) {
+            AndroidView(
+                factory = { previewView },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            viewModel.focusAt(previewView, offset.x, offset.y)
+                        }
+                    },
+            )
+
+            GuidanceOverlay(
+                guidance = state.guidance,
+                livePose = state.livePose,
+                showGrid = state.showGrid,
+                showPoseGuide = state.showPoseGuide,
+                showLevel = state.showLevel,
+                mirrored = state.usingFrontCamera,
+                frameAspect = state.frameAspect,
+                rollDeg = state.rollDeg,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            HintStrip(
+                advice = advice,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 12.dp, vertical = 14.dp),
+            )
+
+            if (flash.value > 0f) {
+                Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = flash.value)))
+            }
+        }
+
+        // ---------------- Controls ----------------
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .weight(1f)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            HintStrip(guidance = state.guidance)
-
             AnimatedVisibility(visible = state.lastEnhancementSummary != null) {
                 state.lastEnhancementSummary?.let { summary ->
                     Text(
-                        text = summary,
+                        text = "Saved · $summary",
                         color = Good,
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(Color.Black.copy(alpha = 0.6f))
+                            .background(Color.White.copy(alpha = 0.08f))
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
             }
 
-            ToggleRow(
-                showGrid = state.showGrid,
-                showPose = state.showPoseGuide,
-                showLevel = state.showLevel,
-                hdrOn = state.manual.hdrRequested,
-                hdrAvailable = state.capabilities.supportsHdr,
-                onGrid = viewModel::toggleGrid,
-                onPose = viewModel::togglePoseGuide,
-                onLevel = viewModel::toggleLevel,
-                onHdr = { viewModel.toggleHdr(previewView) },
-                onCyclePose = viewModel::cyclePose,
-            )
-
-            AnimatedVisibility(visible = state.isPro) {
-                ProControls(
-                    state = state,
-                    onManualChange = viewModel::updateManual,
-                    onZoom = viewModel::setZoom,
-                    onExposureCompensation = viewModel::setExposureCompensation,
+            if (Features.GRID || Features.POSE_GUIDE || Features.HDR_BUTTON) {
+                ToggleRow(
+                    showGrid = state.showGrid,
+                    showPose = state.showPoseGuide,
+                    showLevel = state.showLevel,
+                    hdrOn = state.manual.hdrRequested,
+                    hdrAvailable = state.capabilities.supportsHdr,
+                    onGrid = viewModel::toggleGrid,
+                    onPose = viewModel::togglePoseGuide,
+                    onLevel = viewModel::toggleLevel,
+                    onHdr = { viewModel.toggleHdr(previewView) },
+                    onCyclePose = viewModel::cyclePose,
                 )
             }
 
-            ModeSwitch(
-                mode = state.mode,
-                onModeChange = viewModel::setMode,
-            )
+            if (Features.PRO_MODE) {
+                AnimatedVisibility(visible = state.isPro) {
+                    ProControls(
+                        state = state,
+                        onManualChange = viewModel::updateManual,
+                        onZoom = viewModel::setZoom,
+                        onExposureCompensation = viewModel::setExposureCompensation,
+                    )
+                }
+                ModeSwitch(mode = state.mode, onModeChange = viewModel::setMode)
+            }
 
             ShutterRow(
                 captureStage = state.captureStage,
-                ready = state.guidance?.readyToShoot == true,
+                ready = advice.looksGood,
                 enabled = state.cameraReady,
+                lastPhotoUri = state.lastPhotoUri,
                 onCapture = viewModel::capture,
                 onSwitchCamera = { viewModel.switchCamera(previewView) },
             )
         }
+    }
 
-        // ---------------- Messages ----------------
-        state.message?.let { message ->
+    // ---------------- Messages ----------------
+    state.message?.let { message ->
+        Box(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) {
             Snackbar(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(16.dp),
                 action = {
                     Text(
-                        text = "DISMISS",
+                        text = "OK",
                         color = Amber,
                         modifier = Modifier
                             .clickable { viewModel.dismissMessage() }
@@ -201,7 +256,61 @@ fun CameraScreen(
             }
         }
     }
+    }
 }
+
+/**
+ * The last photo, bottom left, like every camera app: proof the shot was
+ * saved and one tap to see it.
+ */
+@Composable
+private fun LastPhotoButton(uri: Uri?) {
+    val context = LocalContext.current
+    var thumb by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(uri) {
+        thumb = uri?.let { loadThumbnail(context, it) }
+    }
+    Box(
+        modifier = Modifier
+            .size(52.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.10f))
+            .border(1.5.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .clickable(enabled = uri != null) {
+                uri ?: return@clickable
+                val view = Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "image/*")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                runCatching { context.startActivity(view) }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        thumb?.let {
+            Image(
+                bitmap = it,
+                contentDescription = "Last photo",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** A small, correctly rotated preview of a saved photo, off the main thread. */
+private suspend fun loadThumbnail(context: Context, uri: Uri): ImageBitmap? =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.contentResolver.loadThumbnail(uri, android.util.Size(256, 256), null)
+            } else {
+                val options = BitmapFactory.Options().apply { inSampleSize = 16 }
+                context.contentResolver.openInputStream(uri)?.use {
+                    BitmapFactory.decodeStream(it, null, options)
+                }
+            }
+            bitmap?.asImageBitmap()
+        }.getOrNull()
+    }
 
 @Composable
 private fun ModeSwitch(
@@ -296,6 +405,7 @@ private fun ShutterRow(
     captureStage: CaptureStage,
     ready: Boolean,
     enabled: Boolean,
+    lastPhotoUri: Uri?,
     onCapture: () -> Unit,
     onSwitchCamera: () -> Unit,
 ) {
@@ -304,7 +414,7 @@ private fun ShutterRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Spacer(modifier = Modifier.size(52.dp))
+        LastPhotoButton(uri = lastPhotoUri)
 
         Box(contentAlignment = Alignment.Center) {
             val busy = captureStage != CaptureStage.IDLE
@@ -320,7 +430,8 @@ private fun ShutterRow(
                     .padding(6.dp)
                     .clip(CircleShape)
                     .background(if (busy) Smoke else Color.White)
-                    .clickable(enabled = enabled && !busy, onClick = onCapture),
+                    .clickable(enabled = enabled && !busy, onClick = onCapture)
+                    .semantics { contentDescription = "Take photo" },
             )
             if (busy) {
                 CircularProgressIndicator(

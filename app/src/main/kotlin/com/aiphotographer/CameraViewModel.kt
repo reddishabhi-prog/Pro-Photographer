@@ -160,6 +160,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 livePose = result.livePose,
                 frameAspect = result.frameAspect,
                 hardwareNote = shortfall,
+                rollDeg = result.rollDeg,
             )
         }
 
@@ -273,7 +274,11 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         cameraController.capture { result ->
             result.fold(
                 onSuccess = { photo ->
-                    _state.update { it.copy(captureStage = CaptureStage.PROCESSING) }
+                    // The flash fires the moment the sensor has the picture,
+                    // not after saving, so the press feels instant.
+                    _state.update {
+                        it.copy(captureStage = CaptureStage.PROCESSING, shotCount = it.shotCount + 1)
+                    }
                     viewModelScope.launch {
                         val saved = processor.enhanceAndSave(
                             photo = photo,

@@ -11,14 +11,12 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import com.aiphotographer.intelligence.BodyFraming
-import com.aiphotographer.intelligence.CompositionAnalyzer
 import com.aiphotographer.intelligence.Guidance
 import com.aiphotographer.intelligence.Landmark
 import com.aiphotographer.intelligence.NormPoint
 import com.aiphotographer.intelligence.PoseLibrary
 import com.aiphotographer.intelligence.overlay.PoseOverlayGeometry
 import com.aiphotographer.ui.theme.Amber
-import com.aiphotographer.ui.theme.Critical
 import com.aiphotographer.ui.theme.Good
 import kotlin.math.abs
 
@@ -38,36 +36,26 @@ fun GuidanceOverlay(
     showLevel: Boolean,
     mirrored: Boolean,
     frameAspect: Float,
+    rollDeg: Float,
     modifier: Modifier = Modifier,
 ) {
+    // The canvas is laid out at exactly the camera frame's shape (see
+    // CameraScreen), so 0..1 frame coordinates map straight onto it.
     Canvas(modifier = modifier) {
         if (showGrid) drawThirdsGrid()
 
-        if (guidance != null) {
-            if (showPoseGuide) {
-                drawPoseGuide(guidance, mirrored, frameAspect)
-                drawLivePose(livePose, mirrored)
-            }
+        if (guidance != null && showPoseGuide) {
+            drawPoseGuide(guidance, mirrored, frameAspect)
+            drawLivePose(livePose, mirrored)
             drawTargetMarker(guidance, mirrored)
-            if (showLevel) drawLevelIndicator(rollFrom(guidance))
         }
+        if (showLevel) drawLevelIndicator(rollDeg)
     }
 }
 
 /** Convert dp to pixels inside a draw pass. */
 private fun DrawScope.dp(value: Float): Float = value * density
 
-/**
- * How far off level the engine judged this frame.
- *
- * Driven by the issues the engine reported rather than a second read of the
- * sensor, so the indicator can never disagree with the advice beside it.
- */
-private fun rollFrom(guidance: Guidance): Float = when {
-    CompositionAnalyzer.HORIZON_TILTED in guidance.composition.issues -> 9f
-    CompositionAnalyzer.HORIZON_SLIGHTLY_TILTED in guidance.composition.issues -> 4f
-    else -> 0f
-}
 
 /** Rule of thirds: the oldest and most useful grid there is. */
 private fun DrawScope.drawThirdsGrid() {
@@ -188,11 +176,13 @@ private fun DrawScope.drawTargetMarker(guidance: Guidance, mirrored: Boolean) {
 
 /**
  * A horizon level: one of the few things a phone knows for certain that the
- * person holding it does not, which is why it earns permanent screen space.
+ * person holding it does not.
  */
 private fun DrawScope.drawLevelIndicator(rollDegrees: Float) {
-    val level = abs(rollDegrees) < 1.5f
-    val color = if (level) Good else Critical.copy(alpha = 0.9f)
+    // Hidden when the phone is level: it only speaks when it has something
+    // to say. (Flat-lay shots arrive here as zero; see TiltMath.hasHorizon.)
+    if (abs(rollDegrees) < 1.5f) return
+    val color = Amber.copy(alpha = 0.95f)
     val halfWidth = size.width * 0.18f
     val center = Offset(size.width / 2f, size.height / 2f)
     val thickness = dp(2f)
@@ -204,16 +194,14 @@ private fun DrawScope.drawLevelIndicator(rollDegrees: Float) {
         strokeWidth = thickness,
     )
 
-    if (level) {
-        drawCircle(color, radius = dp(4f), center = center)
-    } else {
-        rotate(degrees = -rollDegrees, pivot = center) {
-            drawLine(
-                color,
-                Offset(center.x - halfWidth, center.y),
-                Offset(center.x + halfWidth, center.y),
-                strokeWidth = thickness,
-            )
-        }
+    // The real horizon appears turned against the phone's roll; drawing the
+    // line there shows the user how far to turn back to the faint level mark.
+    rotate(degrees = -rollDegrees, pivot = center) {
+        drawLine(
+            color,
+            Offset(center.x - halfWidth, center.y),
+            Offset(center.x + halfWidth, center.y),
+            strokeWidth = thickness,
+        )
     }
 }
