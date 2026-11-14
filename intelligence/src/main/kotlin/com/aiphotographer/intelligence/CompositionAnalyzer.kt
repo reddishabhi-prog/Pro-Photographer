@@ -61,7 +61,9 @@ object CompositionAnalyzer {
         val face = SceneClassifier.mainFace(input, main)
 
         // --- A level horizon ---
-        val roll = abs(input.tilt.rollDeg)
+        // Only when there is one: shooting straight down at a plate, roll is
+        // noise and nagging about it was pure annoyance.
+        val roll = if (TiltMath.hasHorizon(input.tilt)) abs(input.tilt.rollDeg) else 0f
         if (roll > 8f) {
             issues.add(HORIZON_TILTED)
             score -= min(25f, roll * 1.8f).toInt()

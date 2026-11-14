@@ -6,8 +6,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import com.aiphotographer.intelligence.DeviceTilt
-import kotlin.math.atan2
-import kotlin.math.hypot
+import com.aiphotographer.intelligence.TiltMath
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -65,21 +64,9 @@ class TiltSensor(context: Context) : SensorEventListener {
             gravityZ += (values[2] - gravityZ) * smoothing
         }
 
-        // Roll: how far the phone is rotated about the axis you look along.
-        // Upright portrait reads zero; clockwise rotation reads positive.
-        val roll = Math.toDegrees(atan2(gravityX.toDouble(), gravityY.toDouble())).toFloat()
-
-        // Pitch: where the rear camera is pointing. The z axis comes out of
-        // the SCREEN, and the rear camera faces the other way, so the sign is
-        // inverted: screen-up on a table means the camera points down at -90.
-        val pitch = -Math.toDegrees(
-            atan2(
-                gravityZ.toDouble(),
-                hypot(gravityX.toDouble(), gravityY.toDouble()),
-            )
-        ).toFloat()
-
-        latest.set(DeviceTilt(rollDeg = roll, pitchDeg = pitch))
+        // The sign conventions live in :intelligence where they are tested;
+        // getting roll backwards once told users to tilt the wrong way.
+        latest.set(TiltMath.fromGravity(gravityX, gravityY, gravityZ))
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit

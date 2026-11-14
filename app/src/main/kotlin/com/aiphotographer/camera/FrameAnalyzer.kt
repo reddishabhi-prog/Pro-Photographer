@@ -15,6 +15,7 @@ import com.aiphotographer.intelligence.PhotoIntelligenceEngine
 import com.aiphotographer.intelligence.SceneClassifier
 import com.aiphotographer.intelligence.SceneLabel
 import com.aiphotographer.intelligence.SubjectMotionTracker
+import com.aiphotographer.intelligence.TiltMath
 import com.aiphotographer.intelligence.imaging.LumaSampler
 import com.aiphotographer.intelligence.imaging.PlaneData
 import com.google.android.gms.tasks.Tasks
@@ -31,6 +32,8 @@ data class AnalysisResult(
     val livePose: Map<Landmark, NormPoint>,
     /** Detected face boxes, used to hold back sharpening on skin. */
     val faceBoxes: List<Box>,
+    /** The phone's roll this frame, the same value the engine judged. */
+    val rollDeg: Float = 0f,
 )
 
 /**
@@ -150,6 +153,7 @@ class FrameAnalyzer(
                     frameAspect = uprightWidth.toFloat() / uprightHeight.toFloat(),
                     livePose = poseLandmarks,
                     faceBoxes = mappedFaces.map { it.box },
+                    rollDeg = if (TiltMath.hasHorizon(frameInput.tilt)) frameInput.tilt.rollDeg else 0f,
                 )
             )
         } catch (e: Exception) {
