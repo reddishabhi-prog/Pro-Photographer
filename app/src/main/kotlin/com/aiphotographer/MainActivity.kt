@@ -5,7 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.aiphotographer.ui.CameraScreen
+import com.aiphotographer.ui.OnboardingScreen
 import com.aiphotographer.ui.PermissionGate
 import com.aiphotographer.ui.theme.AIPhotographerTheme
 
@@ -21,13 +27,27 @@ class MainActivity : ComponentActivity() {
     private val viewModel: CameraViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
+        val prefs = UserPrefs(this)
+        viewModel.setInterests(prefs.interests, welcome = false)
+
         setContent {
             AIPhotographerTheme {
-                PermissionGate {
-                    CameraScreen(viewModel = viewModel)
+                var onboarded by remember { mutableStateOf(prefs.onboarded) }
+                if (!onboarded) {
+                    OnboardingScreen(onFinish = { picks ->
+                        prefs.interests = picks
+                        prefs.onboarded = true
+                        viewModel.setInterests(picks, welcome = true)
+                        onboarded = true
+                    })
+                } else {
+                    PermissionGate {
+                        CameraScreen(viewModel = viewModel)
+                    }
                 }
             }
         }
