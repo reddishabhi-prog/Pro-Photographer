@@ -83,6 +83,7 @@ class CameraController(
     private var imageCapture: ImageCapture? = null
 
     private val latestCameraState = AtomicReference<CameraState?>(null)
+    private val captureExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var analyzer: FrameAnalyzer? = null
 
     /** What the current camera can do, read from the hardware once bound. */
@@ -212,8 +213,22 @@ class CameraController(
             .also { it.setAnalyzer(analysisExecutor, frameAnalyzer) }
 
         // --- Stills ---
+        // Capped near 12 MP. Left alone, CameraX picks the sensor's full size,
+        // which on 50-200 MP phones is a 200-800 MB bitmap: decoding it, then
+        // enhancing a copy, runs out of memory and the photo is lost. 12 MP is
+        // what the phones' own camera apps save by default.
+        val stillResolution = ResolutionSelector.Builder()
+            .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+            .setResolutionStrategy(
+                ResolutionStrategy(
+                    STILL_SIZE,
+                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER,
+                )
+            )
+            .build()
         val newCapture = ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setResolutionSelector(stillResolution)
             .setTargetRotation(deviceRotation)
             .build()
 
@@ -236,6 +251,7 @@ class CameraController(
 
     fun unbind() {
         orientationListener.disable()
+        captureExecutor.shutdown()
         imageAnalysis?.clearAnalyzer()
         cameraProvider?.unbindAll()
         camera = null
@@ -396,8 +412,10 @@ class CameraController(
         }
         val stateAtCapture = latestCameraState.get()
 
+        // Not the analysis thread: that is kept busy by the vision models, and
+        // a shutter press queued behind them felt like the button did nothing.
         capture.takePicture(
-            analysisExecutor,
+            captureExecutor,
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
                     try {
@@ -459,6 +477,9 @@ class CameraController(
          * anyway, and every extra pixel is spent on every frame.
          */
         private val ANALYSIS_SIZE = android.util.Size(640, 480)
+
+        /** 4:3 at about 12 MP, the size every phone camera saves by default. */
+        private val STILL_SIZE = android.util.Size(4000, 3000)
     }
 }
 
