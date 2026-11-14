@@ -15,6 +15,9 @@ object SettingsAdvisor {
     /** Above this, noise starts costing more than motion blur saves. */
     private const val ISO_PAIN_THRESHOLD = 3200
 
+    /** sqrt(2): half a photographic stop. */
+    private const val HALF_STOP = 1.4142135
+
     fun recommend(
         input: FrameInput,
         scene: SceneType,
@@ -52,6 +55,19 @@ object SettingsAdvisor {
             target = slower
             iso = ExposureMath.requiredIso(target, sceneEv, input.camera.aperture)
         }
+
+        // 4b. The opposite problem: in bright light the ISO bottoms out at base
+        //     and the frame is still too bright. A phone lens has a fixed
+        //     aperture, so the only light left to cut is shutter time. Go
+        //     faster until we are within half a stop of a correct exposure.
+        val fastest = ExposureMath.SHUTTER_STOPS.first()
+        while (target < fastest &&
+            ExposureMath.exactIso(target, sceneEv, input.camera.aperture) <
+            ExposureMath.MIN_ISO / HALF_STOP
+        ) {
+            target = ExposureMath.SHUTTER_STOPS.last { it > target }
+        }
+        iso = ExposureMath.requiredIso(target, sceneEv, input.camera.aperture)
 
         // 5. White balance: correct a cast, but never neutralise good light.
         val warmth = input.color.warmth

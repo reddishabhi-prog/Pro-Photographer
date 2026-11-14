@@ -42,11 +42,17 @@ object ExposureMath {
      *
      *     ISO = 100 * (N^2 / t) / 2^EV100
      */
-    fun requiredIso(shutterDenominator: Int, sceneEv: Double, aperture: Float): Int {
+    fun requiredIso(shutterDenominator: Int, sceneEv: Double, aperture: Float): Int =
+        exactIso(shutterDenominator, sceneEv, aperture).roundToInt().coerceIn(MIN_ISO, MAX_ISO)
+
+    /**
+     * [requiredIso] before it is clamped to what a sensor can do. Below
+     * [MIN_ISO] it says how far over the frame would be at base ISO.
+     */
+    fun exactIso(shutterDenominator: Int, sceneEv: Double, aperture: Float): Double {
         val seconds = 1.0 / shutterDenominator.coerceAtLeast(1)
         val n = aperture.coerceAtLeast(0.5f).toDouble()
-        val iso = 100.0 * ((n * n) / seconds) / Math.pow(2.0, sceneEv)
-        return iso.roundToInt().coerceIn(MIN_ISO, MAX_ISO)
+        return 100.0 * ((n * n) / seconds) / Math.pow(2.0, sceneEv)
     }
 
     /** Snap an arbitrary shutter denominator to the nearest conventional stop. */
