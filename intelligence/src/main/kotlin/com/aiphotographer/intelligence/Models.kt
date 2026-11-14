@@ -166,6 +166,8 @@ data class FrameInput(
     val tilt: DeviceTilt = DeviceTilt(),
     /** 0..1 estimate of how fast the subject is moving between frames. */
     val subjectMotion: Float = 0f,
+    /** What the user said they like to shoot; a prior for unclear scenes. */
+    val interests: Set<ShootingInterest> = emptySet(),
 )
 
 /** How much of a person is inside the frame. */

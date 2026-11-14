@@ -14,6 +14,7 @@ import com.aiphotographer.capture.PhotoProcessor
 import com.aiphotographer.intelligence.Box
 import com.aiphotographer.intelligence.Guidance
 import com.aiphotographer.intelligence.GuidanceStabilizer
+import com.aiphotographer.intelligence.ShootingInterest
 import com.aiphotographer.intelligence.camera.ManualRanges
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -62,6 +63,16 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private var lastGuidance: Guidance? = null
     private var lastFaces: List<Box> = emptyList()
 
+    /** What the user said they shoot; read by the analysis thread each frame. */
+    @Volatile private var interests: Set<ShootingInterest> = emptySet()
+
+    fun setInterests(picks: List<ShootingInterest>, welcome: Boolean) {
+        interests = picks.toSet()
+        if (welcome) {
+            ShootingInterest.welcomeTip(picks)?.let { tip -> _state.update { it.copy(message = tip) } }
+        }
+    }
+
     /** Settings are pushed to the hardware on a timer, not every frame. */
     private var lastSettingsAppliedAt = 0L
 
@@ -86,6 +97,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             tiltSensor = tiltSensor,
             analysisExecutor = analysisExecutor,
             poseVariantProvider = { _state.value.poseVariant },
+            interestsProvider = { interests },
             onAnalysis = ::onAnalysis,
             mainExecutor = ContextCompat.getMainExecutor(appContext),
         ).also {

@@ -35,6 +35,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.aiphotographer.ManualSettings
 import com.aiphotographer.intelligence.CameraState
 import com.aiphotographer.intelligence.SettingsRecommendation
+import com.aiphotographer.intelligence.ShootingInterest
 import com.aiphotographer.intelligence.WhiteBalanceMode
 import com.aiphotographer.intelligence.camera.CameraCapabilities
 import com.aiphotographer.intelligence.camera.ManualRanges
@@ -71,6 +72,7 @@ class CameraController(
     private val analysisExecutor: Executor,
     private val mainExecutor: Executor,
     private val poseVariantProvider: () -> Int,
+    private val interestsProvider: () -> Set<ShootingInterest> = { emptySet() },
     private val onAnalysis: (AnalysisResult) -> Unit,
 ) {
 
@@ -201,6 +203,7 @@ class CameraController(
             tiltSensor = tiltSensor,
             cameraStateProvider = { latestCameraState.get() },
             poseVariantProvider = poseVariantProvider,
+            interestsProvider = interestsProvider,
             onResult = onAnalysis,
         )
         analyzer = frameAnalyzer

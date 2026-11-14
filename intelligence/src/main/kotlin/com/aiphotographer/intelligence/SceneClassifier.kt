@@ -121,7 +121,7 @@ object SceneClassifier {
             SceneType.DOCUMENT to labelScore(input.labels, DOCUMENT_WORDS),
             SceneType.ARCHITECTURE to labelScore(input.labels, ARCHITECTURE_WORDS),
             SceneType.LANDSCAPE to labelScore(input.labels, LANDSCAPE_WORDS),
-        )
+        ).mapValues { (scene, score) -> score * ShootingInterest.boostFor(scene, input.interests) }
         val best = scores.maxByOrNull { it.value }
         if (best != null && best.value >= 0.45f) return best.key to BodyFraming.UNKNOWN
         if (veryDark) return SceneType.NIGHT to BodyFraming.UNKNOWN

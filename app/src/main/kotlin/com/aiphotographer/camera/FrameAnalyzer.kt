@@ -14,6 +14,7 @@ import com.aiphotographer.intelligence.PersonEstimator
 import com.aiphotographer.intelligence.PhotoIntelligenceEngine
 import com.aiphotographer.intelligence.SceneClassifier
 import com.aiphotographer.intelligence.SceneLabel
+import com.aiphotographer.intelligence.ShootingInterest
 import com.aiphotographer.intelligence.SubjectMotionTracker
 import com.aiphotographer.intelligence.TiltMath
 import com.aiphotographer.intelligence.imaging.LumaSampler
@@ -50,6 +51,7 @@ class FrameAnalyzer(
     private val tiltSensor: TiltSensor,
     private val cameraStateProvider: () -> CameraState?,
     private val poseVariantProvider: () -> Int,
+    private val interestsProvider: () -> Set<ShootingInterest> = { emptySet() },
     private val onResult: (AnalysisResult) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
@@ -143,6 +145,7 @@ class FrameAnalyzer(
                 camera = cameraState,
                 tilt = tiltSensor.current(),
                 subjectMotion = motion,
+                interests = interestsProvider(),
             )
 
             val guidance = PhotoIntelligenceEngine.analyse(frameInput, poseVariantProvider())
