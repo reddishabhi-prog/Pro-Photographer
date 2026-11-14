@@ -22,3 +22,13 @@ application {
     mainClass.set("com.aiphotographer.simulator.SimulatorKt")
     applicationDefaultJvmArgs = listOf("-Dstdout.encoding=UTF-8")
 }
+
+// Draws the onboarding showcase and runs each through the real enhancer.
+tasks.register<JavaExec>("generateShowcase") {
+    group = "showcase"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.aiphotographer.simulator.ShowcaseGeneratorKt")
+    systemProperty("java.awt.headless", "true")
+    systemProperty("showcase.out", rootProject.file("app/src/main/res/drawable-nodpi").absolutePath)
+    systemProperty("showcase.preview", layout.buildDirectory.file("showcase-preview.png").get().asFile.absolutePath)
+}
