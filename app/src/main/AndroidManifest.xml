@@ -19,6 +19,16 @@
     <!-- Reading our own gallery of captured shots on Android 13+. -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
+    <!-- ML Kit pose-detection-common merges INTERNET and ACCESS_NETWORK_STATE in
+         for its telemetry. Our models are bundled, so the network is never needed;
+         strip both so the app physically cannot upload a photograph. -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+
     <uses-feature
         android:name="android.hardware.camera.any"
         android:required="true" />
