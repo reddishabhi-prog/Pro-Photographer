@@ -215,7 +215,7 @@ class PhotoProcessor(
      * wants to know why a shot looks the way it does.
      */
     private fun writeExif(exif: ExifInterface, cameraState: CameraState?) {
-        exif.setAttribute(ExifInterface.TAG_SOFTWARE, "AI Photographer")
+        exif.setAttribute(ExifInterface.TAG_SOFTWARE, "ShotMuse")
         exif.setAttribute(
             ExifInterface.TAG_DATETIME,
             EXIF_DATE_FORMAT.format(Date()),
@@ -243,7 +243,7 @@ class PhotoProcessor(
 
     companion object {
         private const val TAG = "PhotoProcessor"
-        private const val ALBUM = "AI Photographer"
+        private const val ALBUM = "ShotMuse"
         private const val JPEG_QUALITY = 95
 
         private val FILE_NAME_FORMAT =

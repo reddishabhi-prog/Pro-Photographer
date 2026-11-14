@@ -1,33 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- ShotMuse mark: a viewfinder (the camera) around a sparkle (the muse).
+     Drawn inside the 66dp adaptive-icon safe zone so no launcher crops it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Aperture ring -->
+    <!-- Viewfinder corners -->
     <path
-        android:strokeColor="#F2F2F7"
-        android:strokeWidth="3.2"
         android:fillColor="#00000000"
-        android:pathData="M54,30 a24,24 0 1,0 0.01,0" />
+        android:strokeWidth="4.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M31,43 L31,35 Q31,31 35,31 L43,31 M65,31 L73,31 Q77,31 77,35 L77,43 M77,65 L77,73 Q77,77 73,77 L65,77 M43,77 L35,77 Q31,77 31,73 L31,65">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="31" android:startY="31"
+                android:endX="77" android:endY="77"
+                android:startColor="#FFD27A"
+                android:endColor="#FF7A59" />
+        </aapt:attr>
+    </path>
 
-    <!-- Aperture blades -->
-    <path
-        android:fillColor="#E8B84B"
-        android:pathData="M54,36 L70,45 L70,54 Z" />
-    <path
-        android:fillColor="#E8B84B"
-        android:pathData="M70,58 L62,72 L54,67 Z" />
-    <path
-        android:fillColor="#E8B84B"
-        android:pathData="M50,67 L42,72 L34,58 Z" />
-    <path
-        android:fillColor="#E8B84B"
-        android:pathData="M34,54 L34,45 L50,36 Z" />
+    <!-- The muse: a four-point sparkle -->
+    <path android:pathData="M54,38 C55.6,49.2 58.8,52.4 70,54 C58.8,55.6 55.6,58.8 54,70 C52.4,58.8 49.2,55.6 38,54 C49.2,52.4 52.4,49.2 54,38 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="40" android:startY="40"
+                android:endX="68" android:endY="68"
+                android:startColor="#FFF4DA"
+                android:endColor="#FFB547" />
+        </aapt:attr>
+    </path>
 
-    <!-- Centre point -->
+    <!-- A second, smaller spark -->
     <path
-        android:fillColor="#F2F2F7"
-        android:pathData="M54,50 a4,4 0 1,0 0.01,0" />
+        android:fillColor="#FFE2A3"
+        android:pathData="M67,37 C67.5,40.3 68.7,41.5 72,42 C68.7,42.5 67.5,43.7 67,47 C66.5,43.7 65.3,42.5 62,42 C65.3,41.5 66.5,40.3 67,37 Z" />
 </vector>

@@ -99,7 +99,7 @@ private fun PermissionExplanation(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = "AI Photographer needs the camera to see your scene and coach " +
+                text = "ShotMuse needs the camera to see your scene and coach " +
                     "your shot. Everything is analysed on this phone — the app has no " +
                     "internet permission at all, so nothing can be uploaded.",
                 color = Smoke,
