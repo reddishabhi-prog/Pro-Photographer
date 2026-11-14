@@ -56,6 +56,18 @@ android {
     lint {
         abortOnError = false
     }
+
+    // One APK per phone chip instead of one carrying all four: ML Kit's
+    // native libraries are ~60 MB per chip, so the all-in-one file was
+    // 193 MB. Almost every phone since 2017 takes the arm64-v8a file.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
+    }
 }
 
 dependencies {
