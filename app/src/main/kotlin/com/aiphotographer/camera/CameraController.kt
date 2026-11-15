@@ -33,6 +33,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import com.aiphotographer.ManualSettings
+import com.aiphotographer.intelligence.AutoActions
 import com.aiphotographer.intelligence.CameraState
 import com.aiphotographer.intelligence.SettingsRecommendation
 import com.aiphotographer.intelligence.ShootingInterest
@@ -50,6 +51,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 data class CapturedPhoto(
     val bitmap: Bitmap,
     val cameraState: CameraState?,
+    /** The camera's own JPEG, untouched: saved as the original, byte for byte. */
+    val jpeg: ByteArray,
+    /** Clockwise rotation needed to show [jpeg] upright. */
+    val rotationDegrees: Int,
+    val mirrored: Boolean,
 )
 
 /**
@@ -94,6 +100,13 @@ class CameraController(
 
     private var usingFrontCamera = false
     private var hdrEnabled = false
+
+    /**
+     * The phone maker's own still processing in use, e.g. "HDR" or "Night",
+     * or null when the plain camera is bound. Shown to the user in the HUD.
+     */
+    var captureMode: String? = null
+        private set
 
     /**
      * The device's physical orientation, so a photograph taken with the phone
@@ -173,10 +186,13 @@ class CameraController(
         val hdrAvailable = manager
             ?.isExtensionAvailable(baseSelector, ExtensionMode.HDR) == true
 
-        val selector = if (hdr && hdrAvailable && manager != null) {
-            manager.getExtensionEnabledCameraSelector(baseSelector, ExtensionMode.HDR)
-        } else {
-            baseSelector
+        // The single biggest quality lever: the phone maker's own pipeline
+        // (multi-frame HDR, night stacking, noise reduction) is what makes the
+        // stock camera's photos good, and plain CameraX skips it. Use it when
+        // the phone offers it AND still lets us analyse frames alongside.
+        val extension = if (manager == null) null else EXTENSION_PREFERENCE.firstOrNull { (mode, _) ->
+            manager.isExtensionAvailable(baseSelector, mode) &&
+                runCatching { manager.isImageAnalysisSupported(baseSelector, mode) }.getOrDefault(false)
         }
 
         // --- Preview, with the capture callback attached ---
@@ -230,14 +246,27 @@ class CameraController(
             )
             .build()
         val newCapture = ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setResolutionSelector(stillResolution)
             .setTargetRotation(deviceRotation)
             .build()
 
-        val bound = provider.bindToLifecycle(
-            lifecycleOwner, selector, newPreview, newAnalysis, newCapture,
-        )
+        // Some phones advertise an extension and then refuse the session; a
+        // camera that will not open is worse than one without HDR.
+        val bound = extension?.let { (mode, label) ->
+            runCatching {
+                provider.unbindAll()
+                provider.bindToLifecycle(
+                    lifecycleOwner,
+                    manager!!.getExtensionEnabledCameraSelector(baseSelector, mode),
+                    newPreview, newAnalysis, newCapture,
+                ).also { captureMode = label }
+            }.onFailure { Log.w(TAG, "Extension $label refused; using the plain camera", it) }.getOrNull()
+        } ?: run {
+            captureMode = null
+            provider.unbindAll()
+            provider.bindToLifecycle(lifecycleOwner, baseSelector, newPreview, newAnalysis, newCapture)
+        }
 
         preview = newPreview
         imageAnalysis = newAnalysis
@@ -400,8 +429,10 @@ class CameraController(
             return
         }
 
-        // AUTO mode: the engine drives.
-        setExposureCompensation(recommendation.evCompensation)
+        // AUTO mode: the engine nudges; the phone's own exposure does the rest.
+        setExposureCompensation(
+            recommendation.evCompensation.coerceIn(-AutoActions.MAX_AUTO_EV, AutoActions.MAX_AUTO_EV),
+        )
     }
 
     // -----------------------------------------------------------------
@@ -422,13 +453,24 @@ class CameraController(
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
                     try {
-                        val bitmap = image.toUprightBitmap(usingFrontCamera)
+                        val jpeg = image.jpegBytes()
+                        val bitmap = uprightBitmap(jpeg, image.imageInfo.rotationDegrees, usingFrontCamera)
                         if (bitmap == null) {
                             onResult(
                                 Result.failure(IllegalStateException("Could not decode the photo"))
                             )
                         } else {
-                            onResult(Result.success(CapturedPhoto(bitmap, stateAtCapture)))
+                            onResult(
+                                Result.success(
+                                    CapturedPhoto(
+                                        bitmap = bitmap,
+                                        cameraState = stateAtCapture,
+                                        jpeg = jpeg,
+                                        rotationDegrees = image.imageInfo.rotationDegrees,
+                                        mirrored = usingFrontCamera,
+                                    )
+                                )
+                            )
                         }
                     } catch (e: OutOfMemoryError) {
                         onResult(Result.failure(RuntimeException("Not enough memory for the photo", e)))
@@ -453,13 +495,15 @@ class CameraController(
      * The front camera's preview is mirrored for the user's benefit, but a
      * saved selfie should not be: text in the background would read backwards.
      */
-    private fun ImageProxy.toUprightBitmap(front: Boolean): Bitmap? {
+    private fun ImageProxy.jpegBytes(): ByteArray {
         val buffer = planes[0].buffer
         val bytes = ByteArray(buffer.remaining())
         buffer.get(bytes)
-        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        return bytes
+    }
 
-        val rotation = imageInfo.rotationDegrees
+    private fun uprightBitmap(bytes: ByteArray, rotation: Int, front: Boolean): Bitmap? {
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         if (rotation == 0 && !front) return decoded
 
         val matrix = Matrix()
@@ -480,6 +524,12 @@ class CameraController(
          * anyway, and every extra pixel is spent on every frame.
          */
         private val ANALYSIS_SIZE = android.util.Size(640, 480)
+
+        /** Preferred phone processing for stills, best first, with its HUD label. */
+        private val EXTENSION_PREFERENCE = listOf(
+            ExtensionMode.AUTO to "Auto+",
+            ExtensionMode.HDR to "HDR",
+        )
 
         /** 4:3 at about 12 MP, the size every phone camera saves by default. */
         private val STILL_SIZE = android.util.Size(4000, 3000)

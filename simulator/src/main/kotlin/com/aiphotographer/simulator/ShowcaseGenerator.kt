@@ -517,6 +517,7 @@ private fun enhance(before: BufferedImage, shot: Shot): Pair<BufferedImage, Stri
     var plan = ImageEnhancer.planFor(guidance, faces)
     plan = ImageEnhancer.withMeasuredLevels(plan, m.p5, m.p95, m.clippedShadows, m.clippedHighlights, m.meanR, m.meanG, m.meanB)
     plan = ImageEnhancer.withClarityRadius(plan, W, H)
+    plan = ImageEnhancer.natural(plan)
     ImageEnhancer.apply(pixels, W, H, plan)
     val after = BufferedImage(W, H, BufferedImage.TYPE_INT_RGB)
     after.setRGB(0, 0, W, H, pixels, 0, W)

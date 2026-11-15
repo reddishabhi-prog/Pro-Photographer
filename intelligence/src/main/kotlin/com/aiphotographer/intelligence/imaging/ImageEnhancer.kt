@@ -185,6 +185,24 @@ object ImageEnhancer {
     }
 
     /** Clarity radius scales with the image so it looks the same at any size. */
+    /**
+     * How much of each planned correction is actually applied to a real
+     * photograph. The first phone test said the edits looked worse than the
+     * stock camera: the phone's own pipeline has already tone-mapped and
+     * sharpened, so a full-strength second pass over-cooks it (halos from
+     * clarity, plastic colour from vibrance, grey shadows from the lift).
+     * At about two thirds the fix is visible but the photo still looks taken.
+     */
+    const val NATURAL_STRENGTH = 0.6f
+
+    fun natural(plan: EnhancementPlan, strength: Float = NATURAL_STRENGTH): EnhancementPlan = plan.copy(
+        shadowLift = plan.shadowLift * strength,
+        highlightRecovery = plan.highlightRecovery * strength,
+        vibrance = plan.vibrance * strength,
+        clarity = plan.clarity * strength,
+        whiteBalanceStrength = plan.whiteBalanceStrength * strength,
+    )
+
     fun withClarityRadius(plan: EnhancementPlan, width: Int, height: Int): EnhancementPlan {
         val shortSide = min(width, height)
         val radius = (shortSide / 180).coerceIn(1, 24)

@@ -54,12 +54,13 @@ class PhotoProcessor(
             val bitmap = photo.bitmap
             val baseName = FILE_NAME_FORMAT.format(Date())
 
-            // Write the original first: once the pixels are enhanced in place,
-            // the original is gone.
+            // The original is the camera's own JPEG, written byte for byte.
+            // Decoding and re-encoding it (as the first version did) costs
+            // quality on every save and throws away the phone's EXIF.
             val originalUri = if (enhance && keepOriginal) {
                 runCatching {
-                    save(bitmap, "${baseName}_original", photo.cameraState)
-                }.getOrNull()
+                    saveOriginalJpeg(photo, "${baseName}_original")
+                }.onFailure { Log.w(TAG, "Could not save the original", it) }.getOrNull()
             } else {
                 null
             }
@@ -122,6 +123,7 @@ class PhotoProcessor(
             meanB = measurement.meanB,
         )
         plan = ImageEnhancer.withClarityRadius(plan, width, height)
+        plan = ImageEnhancer.natural(plan)
 
         ImageEnhancer.apply(pixels, width, height, plan)
         bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
@@ -132,6 +134,60 @@ class PhotoProcessor(
     // -----------------------------------------------------------------
     // Saving
     // -----------------------------------------------------------------
+
+    private fun saveOriginalJpeg(photo: CapturedPhoto, name: String): Uri {
+        val orientation = exifOrientation(photo.rotationDegrees)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, "$name.jpg")
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/$ALBUM")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("Could not create a file in the gallery")
+            try {
+                resolver.openOutputStream(uri)?.use { it.write(photo.jpeg) }
+                    ?: error("Could not open the gallery file for writing")
+                runCatching {
+                    resolver.openFileDescriptor(uri, "rw")?.use { fd ->
+                        val exif = ExifInterface(fd.fileDescriptor)
+                        exif.setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
+                        exif.saveAttributes()
+                    }
+                }.onFailure { Log.w(TAG, "Could not set orientation", it) }
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                uri
+            } catch (e: Exception) {
+                runCatching { resolver.delete(uri, null, null) }
+                throw e
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), ALBUM)
+            if (!dir.exists() && !dir.mkdirs()) error("Could not create the album folder")
+            val file = File(dir, "$name.jpg")
+            file.writeBytes(photo.jpeg)
+            runCatching {
+                ExifInterface(file.absolutePath).apply {
+                    setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
+                    saveAttributes()
+                }
+            }
+            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
+            Uri.fromFile(file)
+        }
+    }
+
+    private fun exifOrientation(rotation: Int): Int = when ((rotation % 360 + 360) % 360) {
+        90 -> ExifInterface.ORIENTATION_ROTATE_90
+        180 -> ExifInterface.ORIENTATION_ROTATE_180
+        270 -> ExifInterface.ORIENTATION_ROTATE_270
+        else -> ExifInterface.ORIENTATION_NORMAL
+    }
 
     private fun save(bitmap: Bitmap, name: String, cameraState: CameraState?): Uri =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
