@@ -14,3 +14,4 @@ local.properties
 !debug.keystore
 /app/release/
 *.hprof
+.kotlin/
