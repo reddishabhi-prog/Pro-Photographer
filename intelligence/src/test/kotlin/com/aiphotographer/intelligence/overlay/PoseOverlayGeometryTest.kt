@@ -2,6 +2,7 @@ package com.aiphotographer.intelligence.overlay
 
 import com.aiphotographer.intelligence.BodyFraming
 import com.aiphotographer.intelligence.Landmark
+import com.aiphotographer.intelligence.NormPoint
 import com.aiphotographer.intelligence.PoseLibrary
 import com.aiphotographer.intelligence.SceneType
 import org.junit.Assert.assertEquals
@@ -117,5 +118,33 @@ class PoseOverlayGeometryTest {
             assertNotNull("${pose.id} failed to lay out", overlay)
             assertTrue("${pose.id} drew no bones", overlay!!.bones.isNotEmpty())
         }
+    }
+
+    @Test
+    fun `the outline sits on the person, nose and shoulders pinned`() {
+        val pose = PoseLibrary.byId("portrait_shoulder_turn")!!
+        val live = mapOf(
+            Landmark.NOSE to NormPoint(0.60f, 0.40f),
+            Landmark.LEFT_SHOULDER to NormPoint(0.45f, 0.62f),
+            Landmark.RIGHT_SHOULDER to NormPoint(0.75f, 0.62f),
+        )
+        val box = PoseOverlayGeometry.boxOnPerson(pose, live, BodyFraming.HALF, SceneType.PORTRAIT)!!
+        val overlay = PoseOverlayGeometry.build(pose, box, 1000f, 1000f)!!
+        val nose = overlay.joints.getValue(Landmark.NOSE)
+        val ls = overlay.joints.getValue(Landmark.LEFT_SHOULDER)
+        val rs = overlay.joints.getValue(Landmark.RIGHT_SHOULDER)
+        // Same height for nose and shoulder line as the person in frame.
+        org.junit.Assert.assertEquals(400f, nose.y, 2f)
+        org.junit.Assert.assertEquals(620f, (ls.y + rs.y) / 2f, 2f)
+        // And centred on their shoulders.
+        org.junit.Assert.assertEquals(600f, (ls.x + rs.x) / 2f, 2f)
+    }
+
+    @Test
+    fun `no outline anchor without a nose and a shoulder`() {
+        val pose = PoseLibrary.byId("portrait_shoulder_turn")!!
+        org.junit.Assert.assertNull(
+            PoseOverlayGeometry.boxOnPerson(pose, mapOf(Landmark.NOSE to NormPoint(0.5f, 0.4f)), BodyFraming.HALF, SceneType.PORTRAIT),
+        )
     }
 }

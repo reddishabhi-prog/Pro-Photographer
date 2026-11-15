@@ -1,6 +1,7 @@
 package com.aiphotographer
 
 import android.net.Uri
+import com.aiphotographer.intelligence.CameraState
 import com.aiphotographer.intelligence.Guidance
 import com.aiphotographer.intelligence.Landmark
 import com.aiphotographer.intelligence.NormPoint
@@ -70,6 +71,17 @@ data class CameraUiState(
      * [message]: camera start-up clears messages, and the tip must survive it.
      */
     val welcomeTip: String? = null,
+    /** What the camera is really using this frame; null until it reports. */
+    val liveCamera: CameraState? = null,
+    /** Exposure compensation AUTO is applying, in stops. */
+    val appliedEv: Float = 0f,
+    /** Phone processing in use for stills ("Auto+", "HDR"), if any. */
+    val captureMode: String? = null,
+    /** Plain-word labels for what the app is doing, for the HUD. */
+    val autoActions: List<String> = emptyList(),
+    /** A pose the user picked from the library; null lets ShotMuse choose. */
+    val pinnedPoseId: String? = null,
+    val showPoseLibrary: Boolean = false,
     /** Bumped on every successful shutter press, to flash the screen. */
     val shotCount: Int = 0,
 ) {

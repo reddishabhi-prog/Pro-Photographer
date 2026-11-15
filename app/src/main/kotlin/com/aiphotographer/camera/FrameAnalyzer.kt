@@ -33,6 +33,8 @@ data class AnalysisResult(
     val livePose: Map<Landmark, NormPoint>,
     /** Detected face boxes, used to hold back sharpening on skin. */
     val faceBoxes: List<Box>,
+    /** What the camera reported for this frame; null while it has not yet. */
+    val cameraState: CameraState? = null,
     /** The phone's roll this frame, the same value the engine judged. */
     val rollDeg: Float = 0f,
 )
@@ -128,7 +130,8 @@ class FrameAnalyzer(
             val motion = motionTracker.update(mainBox, deltaSeconds)
 
             // --- The engine ---
-            val cameraState = cameraStateProvider() ?: run {
+            val reported = cameraStateProvider()
+            val cameraState = reported ?: run {
                 if (!warnedAboutMissingCameraState) {
                     warnedAboutMissingCameraState = true
                     Log.i(TAG, "No capture result yet; using a provisional exposure estimate")
@@ -156,6 +159,7 @@ class FrameAnalyzer(
                     frameAspect = uprightWidth.toFloat() / uprightHeight.toFloat(),
                     livePose = poseLandmarks,
                     faceBoxes = mappedFaces.map { it.box },
+                    cameraState = reported,
                     rollDeg = if (TiltMath.hasHorizon(frameInput.tilt)) frameInput.tilt.rollDeg else 0f,
                 )
             )

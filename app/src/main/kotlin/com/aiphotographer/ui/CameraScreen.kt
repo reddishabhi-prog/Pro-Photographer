@@ -19,6 +19,9 @@ import com.aiphotographer.Features
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.aiphotographer.intelligence.AdviceSelector
+import com.aiphotographer.intelligence.PoseLibrary
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.animation.AnimatedVisibility
@@ -82,6 +85,7 @@ import com.aiphotographer.ui.theme.Smoke
  * one instruction on it, a shutter, and your last photo. Everything else is
  * behind [Features] until it has earned its place on a real phone.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraScreen(
     viewModel: CameraViewModel = viewModel(),
@@ -91,6 +95,7 @@ fun CameraScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.state.collectAsState()
     val advice = remember(state.guidance) { AdviceSelector.select(state.guidance) }
+    val activePose = (state.pinnedPoseId ?: state.guidance?.poseId)?.let { PoseLibrary.byId(it) }
 
     val previewView = remember {
         PreviewView(context).apply {
@@ -123,7 +128,15 @@ fun CameraScreen(
             .navigationBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (Features.TECH_READOUT) {
+        if (Features.SHOT_HUD) {
+            ShotHud(
+                scene = state.guidance?.scene,
+                camera = state.liveCamera,
+                appliedEv = state.appliedEv,
+                actions = state.autoActions,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        } else if (Features.TECH_READOUT) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -163,6 +176,7 @@ fun CameraScreen(
                 frameAspect = state.frameAspect,
                 rollDeg = state.rollDeg,
                 modifier = Modifier.fillMaxSize(),
+                pose = activePose,
             )
 
             state.welcomeTip?.let { tip ->
@@ -208,7 +222,18 @@ fun CameraScreen(
                 }
             }
 
-            if (Features.GRID || Features.POSE_GUIDE || Features.HDR_BUTTON) {
+            if (Features.POSE_GUIDE) {
+                PoseStrip(
+                    pose = activePose,
+                    pinned = state.pinnedPoseId != null,
+                    outlineOn = state.showPoseGuide,
+                    onNext = viewModel::cyclePose,
+                    onToggleOutline = viewModel::togglePoseGuide,
+                    onOpenLibrary = { viewModel.openPoseLibrary(true) },
+                )
+            }
+
+            if (Features.GRID || Features.HDR_BUTTON) {
                 ToggleRow(
                     showGrid = state.showGrid,
                     showPose = state.showPoseGuide,
@@ -242,6 +267,19 @@ fun CameraScreen(
                 lastPhotoUri = state.lastPhotoUri,
                 onCapture = viewModel::capture,
                 onSwitchCamera = { viewModel.switchCamera(previewView) },
+            )
+        }
+    }
+
+    if (state.showPoseLibrary) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.openPoseLibrary(false) },
+            containerColor = Color(0xFF120E16),
+        ) {
+            PoseLibraryContent(
+                pinnedId = state.pinnedPoseId,
+                onPick = viewModel::pinPose,
+                modifier = Modifier.padding(bottom = 24.dp),
             )
         }
     }

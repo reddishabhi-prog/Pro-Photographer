@@ -38,16 +38,17 @@ fun GuidanceOverlay(
     frameAspect: Float,
     rollDeg: Float,
     modifier: Modifier = Modifier,
+    /** The pose to draw: one the user pinned, else the engine's choice. */
+    pose: com.aiphotographer.intelligence.PoseTemplate? = PoseLibrary.byId(guidance?.poseId),
 ) {
     // The canvas is laid out at exactly the camera frame's shape (see
     // CameraScreen), so 0..1 frame coordinates map straight onto it.
     Canvas(modifier = modifier) {
         if (showGrid) drawThirdsGrid()
 
-        if (guidance != null && showPoseGuide) {
-            drawPoseGuide(guidance, mirrored, frameAspect)
+        if (showPoseGuide && pose != null) {
+            drawPoseGuide(pose, guidance, livePose, mirrored, frameAspect)
             drawLivePose(livePose, mirrored)
-            drawTargetMarker(guidance, mirrored)
         }
         if (showLevel) drawLevelIndicator(rollDeg)
     }
@@ -74,21 +75,38 @@ private fun DrawScope.drawThirdsGrid() {
  * in the shape they should take.
  */
 private fun DrawScope.drawPoseGuide(
-    guidance: Guidance,
+    pose: com.aiphotographer.intelligence.PoseTemplate,
+    guidance: Guidance?,
+    livePose: Map<Landmark, NormPoint>,
     mirrored: Boolean,
     frameAspect: Float,
 ) {
-    val pose = PoseLibrary.byId(guidance.poseId) ?: return
     if (!pose.isDrawable) return
 
-    val framing =
-        if (guidance.framing == BodyFraming.UNKNOWN) BodyFraming.HALF else guidance.framing
+    // With someone in frame, stand the ghost where the engine wants them.
+    // Without (a pose picked from the library), use the pose's own shape,
+    // standing on the left third where a portrait usually sits.
+    val hasPerson = guidance != null && guidance.framing != BodyFraming.UNKNOWN
+    val framing = when {
+        hasPerson -> guidance!!.framing
+        else -> pose.framings.firstOrNull { it != BodyFraming.UNKNOWN } ?: BodyFraming.HALF
+    }
+    val scene = if (hasPerson) guidance!!.scene else pose.scenes.first()
 
-    val box = PoseOverlayGeometry.guideBox(
-        scene = guidance.scene,
+    // Someone in frame: lay the outline over them. Live landmarks and the
+    // template are both in camera space; build() mirrors the finished outline
+    // for the selfie camera, exactly as drawLivePose mirrors the person.
+    val anchored = if (livePose.size >= 3) {
+        PoseOverlayGeometry.boxOnPerson(pose, livePose, framing, scene, frameAspect)
+    } else {
+        null
+    }
+
+    val box = anchored ?: PoseOverlayGeometry.guideBox(
+        scene = scene,
         framing = framing,
-        targetCenterX = guidance.composition.targetCenterX,
-        targetCenterY = guidance.composition.targetCenterY,
+        targetCenterX = if (hasPerson) guidance!!.composition.targetCenterX else 0.42f,
+        targetCenterY = if (hasPerson) guidance!!.composition.targetCenterY else 0.55f,
         frameAspect = frameAspect,
     )
 

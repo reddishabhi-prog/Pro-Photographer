@@ -75,6 +75,50 @@ object PoseOverlayGeometry {
     }
 
     /**
+     * The guide box laid over the person actually in frame, so the outline
+     * sits on their body and shows how to move from where they stand.
+     *
+     * The second phone test showed why: a ghost placed at the composition
+     * target floated beside the subject, and people could not tell what to
+     * match. Here the template's nose and shoulder line are pinned to the
+     * live ones; only the limbs differ, which is exactly the instruction.
+     * Returns null when the live pose lacks a nose or both shoulders.
+     */
+    fun boxOnPerson(
+        pose: PoseTemplate,
+        live: Map<Landmark, NormPoint>,
+        framing: BodyFraming,
+        scene: SceneType,
+        frameAspect: Float = 3f / 4f,
+    ): Box? {
+        val liveNose = live[Landmark.NOSE] ?: return null
+        val liveShoulder = midShoulder(live) ?: return null
+        val tNose = pose.skeleton[Landmark.NOSE] ?: return null
+        val tShoulder = midShoulder(pose.skeleton) ?: return null
+
+        val templateSpan = tShoulder.y - tNose.y
+        val liveSpan = liveShoulder.y - liveNose.y
+        if (templateSpan <= 0.01f || liveSpan <= 0.01f) return null
+
+        val height = liveSpan / templateSpan
+        val (_, widthToHeight) = shapeFor(framing, scene)
+        val width = height * widthToHeight * (1f / frameAspect).coerceAtLeast(0.1f)
+        // Pin the template's shoulder midpoint onto the person's.
+        val left = liveShoulder.x - tShoulder.x * width
+        val top = liveShoulder.y - tShoulder.y * height
+        return Box(left, top, left + width, top + height)
+    }
+
+    private fun midShoulder(points: Map<Landmark, NormPoint>): NormPoint? {
+        val l = points[Landmark.LEFT_SHOULDER]
+        val r = points[Landmark.RIGHT_SHOULDER]
+        return when {
+            l != null && r != null -> NormPoint((l.x + r.x) / 2f, (l.y + r.y) / 2f)
+            else -> l ?: r
+        }
+    }
+
+    /**
      * Build the drawable overlay for [pose].
      *
      * [mirrored] should be true for the front camera, whose preview is

@@ -19,13 +19,21 @@ object Features {
     const val PRO_MODE = false
 
     /**
-     * Ghost outline showing how to pose. A strong demo, but on the first
-     * phone it was drawn in the wrong place, and a guide that points at the
-     * wrong spot is worse than none. Off until it is re-tested on hardware.
+     * Pose suggestions: a pose card under the viewfinder, a library to pick
+     * from, and the ghost outline. Back on: the outline was misplaced only
+     * because the preview was cropped, which is fixed, and the second phone
+     * test asked for poses by name.
      */
-    const val POSE_GUIDE = false
+    const val POSE_GUIDE = true
 
-    /** ISO / shutter / EV numbers along the top. Jargon. Off. */
+    /**
+     * The live panel over the viewfinder: what the camera is really set to and
+     * what ShotMuse is doing about the scene. The second phone test asked to
+     * see the app working; showing real numbers is how it earns that trust.
+     */
+    const val SHOT_HUD = true
+
+    /** The old ISO / shutter readout, replaced by [SHOT_HUD]. */
     const val TECH_READOUT = false
 
     /**

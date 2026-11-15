@@ -13,7 +13,9 @@ import com.aiphotographer.camera.TiltSensor
 import com.aiphotographer.capture.PhotoProcessor
 import com.aiphotographer.intelligence.Box
 import com.aiphotographer.intelligence.Guidance
+import com.aiphotographer.intelligence.AutoActions
 import com.aiphotographer.intelligence.GuidanceStabilizer
+import com.aiphotographer.intelligence.PoseLibrary
 import com.aiphotographer.intelligence.ShootingInterest
 import com.aiphotographer.intelligence.camera.ManualRanges
 import java.util.concurrent.ExecutorService
@@ -173,6 +175,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 frameAspect = result.frameAspect,
                 hardwareNote = shortfall,
                 rollDeg = result.rollDeg,
+                liveCamera = result.cameraState ?: it.liveCamera,
+                appliedEv = if (it.isPro) it.manual.evCompensation else AutoActions.autoEv(steady),
+                captureMode = controller?.captureMode,
+                autoActions = AutoActions.describe(steady, controller?.captureMode),
             )
         }
 
@@ -241,7 +247,22 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun cyclePose() {
-        _state.update { it.copy(poseVariant = it.poseVariant + 1) }
+        val pinned = _state.value.pinnedPoseId
+        if (pinned == null) {
+            _state.update { it.copy(poseVariant = it.poseVariant + 1) }
+        } else {
+            // Step through the library in order from the pinned pose.
+            val drawable = PoseLibrary.ALL.filter { it.isDrawable }
+            val i = drawable.indexOfFirst { it.id == pinned }
+            _state.update { it.copy(pinnedPoseId = drawable[(i + 1) % drawable.size].id) }
+        }
+    }
+
+    fun openPoseLibrary(open: Boolean) = _state.update { it.copy(showPoseLibrary = open) }
+
+    /** Pin a pose from the library, or null to let ShotMuse choose again. */
+    fun pinPose(id: String?) = _state.update {
+        it.copy(pinnedPoseId = id, showPoseLibrary = false, showPoseGuide = true)
     }
 
     fun toggleGrid() = _state.update { it.copy(showGrid = !it.showGrid) }
