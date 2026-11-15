@@ -71,6 +71,28 @@ sleep 11
 shot 01-viewfinder
 if adb shell pidof "$PKG" >/dev/null; then pass "app running after 15 s"; else fail "app died on launch"; fi
 
+# --- Live settings panel ---
+HUD=$(ui_dump | grep -o 'text="[^"]*"' | tr '\n' ' ')
+if echo "$HUD" | grep -q 'text="ISO"' && echo "$HUD" | grep -q 'text="SHUTTER"'; then
+  pass "live settings panel shows ISO and shutter"
+else
+  fail "live settings panel missing: $HUD"
+fi
+
+# --- Poses: open the library, pick one, see it suggested ---
+if tap_desc "Pose ideas"; then
+  sleep 2; shot 01b-pose-library
+  if tap_desc "Weight on the back foot"; then
+    sleep 2; shot 01c-pose-picked
+    if ui_dump | grep -q 'Your pose · Weight on the back foot'; then pass "pose picked from the library is suggested"
+    else fail "picked pose not shown"; fi
+  else
+    fail "pose library did not open"
+  fi
+else
+  fail "no 'Pose ideas' button"
+fi
+
 # --- Shutter ---
 BOUNDS=$(ui_dump | grep -o 'content-desc="Take photo"[^>]*bounds="[^"]*"' | grep -o 'bounds="[^"]*"' | head -1)
 if [ -z "$BOUNDS" ]; then
