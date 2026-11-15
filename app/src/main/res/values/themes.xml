@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AIPhotographer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/brand_ink</item>
+    </style>
+
+    <!-- Shown while the app starts: the mark on ink, then straight in. -->
+    <style name="Theme.ShotMuse.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_ink</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.AIPhotographer</item>
+    </style>
+</resources>
