@@ -82,12 +82,15 @@ fi
 # --- Poses: open the library, pick one, see it suggested ---
 if tap_desc "Pose ideas"; then
   sleep 2; shot 01b-pose-library
-  if tap_desc "Weight on the back foot"; then
+  # The first card is on screen even on a small phone; lower ones may not be.
+  if tap_desc "Turn the shoulders, face the lens"; then
     sleep 2; shot 01c-pose-picked
-    if ui_dump | grep -q 'Your pose · Weight on the back foot'; then pass "pose picked from the library is suggested"
+    if ui_dump | grep -q 'Your pose · Turn the shoulders, face the lens'; then pass "pose picked from the library is suggested"
     else fail "picked pose not shown"; fi
   else
     fail "pose library did not open"
+    adb shell input keyevent 4   # close it so the remaining checks still run
+    sleep 1
   fi
 else
   fail "no 'Pose ideas' button"
